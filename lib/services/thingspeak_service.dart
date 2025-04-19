@@ -183,6 +183,12 @@ class ThingSpeakService {
       if (directUrl != null && directUrl.isNotEmpty) {
         final data = await getDataFromDirectUrl(directUrl);
         if (data.containsKey('feeds')) {
+          debugPrint('Got ${data["feeds"].length} feeds from direct URL');
+          // Print first feed for debugging
+          if (data["feeds"].isNotEmpty) {
+            debugPrint('Sample feed: ${json.encode(data["feeds"][0])}');
+          }
+          
           List<dynamic> feeds = data['feeds'];
           return feeds.map((feed) => ThingSpeakFeed.fromJson(feed)).toList();
         } else {
@@ -208,6 +214,12 @@ class ThingSpeakService {
         
         if (!data.containsKey('feeds')) {
           throw Exception('Invalid response format, missing "feeds" key');
+        }
+        
+        debugPrint('Got ${data["feeds"].length} feeds from API');
+        // Print first feed for debugging
+        if (data["feeds"].isNotEmpty) {
+          debugPrint('Sample feed: ${json.encode(data["feeds"][0])}');
         }
         
         List<dynamic> feeds = data['feeds'];

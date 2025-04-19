@@ -71,7 +71,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                   
                   
                   ...channelInfo.fieldLabels.entries.map((entry) {
-                    final fieldKey = entry.key; // e.g., "field1"
+                    final fieldKey = entry.key;
                     final fieldLabel = entry.value;
                     
                     
@@ -160,18 +160,27 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
             ),
             const SizedBox(height: 16),
             
-            
+
             ...latestData.fieldValues.entries.map((entry) {
               final fieldKey = entry.key;
               final fieldValue = entry.value;
               final fieldLabel = channelInfo?.fieldLabels[fieldKey] ?? fieldKey;
               
+
+              IconData icon = _getIconForField(fieldLabel.toLowerCase());
+              
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(fieldLabel),
+                    Row(
+                      children: [
+                        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text(fieldLabel),
+                      ],
+                    ),
                     Text(
                       fieldValue.toString(),
                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -184,6 +193,29 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         ),
       ),
     );
+  }
+
+  // Add helper method to identify sensor types
+  IconData _getIconForField(String fieldName) {
+    if (fieldName.contains('humid')) {
+      return Icons.water_drop;
+    } else if (fieldName.contains('temp')) {
+      return Icons.thermostat;
+    } else if (fieldName.contains('press')) {
+      return Icons.speed;
+    } else if (fieldName.contains('light') || fieldName.contains('lux')) {
+      return Icons.wb_sunny;
+    } else if (fieldName.contains('co2') || fieldName.contains('carbon')) {
+      return Icons.cloud;
+    } else if (fieldName.contains('battery') || fieldName.contains('power')) {
+      return Icons.battery_full;
+    } else if (fieldName.contains('motion') || fieldName.contains('pir')) {
+      return Icons.sensors;
+    } else if (fieldName.contains('door') || fieldName.contains('window')) {
+      return Icons.door_front_door;
+    } else {
+      return Icons.analytics;
+    }
   }
 
   String _formatDate(String dateString) {

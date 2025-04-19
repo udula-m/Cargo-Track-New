@@ -106,8 +106,24 @@ class DeviceCard extends StatelessWidget {
   }
 
   Widget _buildDataPreview(BuildContext context, ThingSpeakFeed latestData) {
+
+    final fields = latestData.fieldValues.entries.toList();
     
-    final fields = latestData.fieldValues.entries.take(4).toList();
+
+    debugPrint('Device ${device.name} has ${fields.length} fields to display');
+    for (var field in fields) {
+      debugPrint('Field ${field.key}: ${field.value}');
+    }
+    
+
+    if (fields.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Center(
+          child: Text('No sensor data available'),
+        ),
+      );
+    }
     
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -126,7 +142,6 @@ class DeviceCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           
-          
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -141,9 +156,32 @@ class DeviceCard extends StatelessWidget {
               final entry = fields[index];
               final fieldKey = entry.key;
               final value = entry.value;
-              final label = channelInfo?.fieldLabels[fieldKey] ?? fieldKey;
               
+
+              String label;
+              if (channelInfo != null && channelInfo!.fieldLabels.containsKey(fieldKey)) {
+                label = channelInfo!.fieldLabels[fieldKey]!;
+              } else {
+
+                label = fieldKey.replaceAll('field', 'Sensor ');
+              }
+
+              String displayValue;
+              if (value == value.toInt()) {
+
+                displayValue = value.toInt().toString();
+              } else if (value < 10) {
+                displayValue = value.toStringAsFixed(2);
+              } else if (value < 100) {
+
+                displayValue = value.toStringAsFixed(1);
+              } else {
+
+                displayValue = value.toInt().toString();
+              }
               
+
+              IconData icon = _getIconForField(label.toLowerCase());
               final color = _getColorForField(fieldKey, index);
               
               return Container(
@@ -167,19 +205,27 @@ class DeviceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Icon(icon, size: 16, color: Colors.black54),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      value.toString(),
+                      displayValue,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
@@ -314,5 +360,27 @@ class DeviceCard extends StatelessWidget {
     }
     
     return colors[fieldNum % colors.length];
+  }
+
+  IconData _getIconForField(String fieldName) {
+    if (fieldName.contains('humid')) {
+      return Icons.water_drop;
+    } else if (fieldName.contains('temp')) {
+      return Icons.thermostat;
+    } else if (fieldName.contains('press')) {
+      return Icons.speed;
+    } else if (fieldName.contains('light') || fieldName.contains('lux')) {
+      return Icons.wb_sunny;
+    } else if (fieldName.contains('co2') || fieldName.contains('carbon')) {
+      return Icons.cloud;
+    } else if (fieldName.contains('battery') || fieldName.contains('power')) {
+      return Icons.battery_full;
+    } else if (fieldName.contains('motion') || fieldName.contains('pir')) {
+      return Icons.sensors;
+    } else if (fieldName.contains('door') || fieldName.contains('window')) {
+      return Icons.door_front_door;
+    } else {
+      return Icons.analytics;
+    }
   }
 }

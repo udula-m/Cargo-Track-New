@@ -122,7 +122,6 @@ class IoTDataProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      
       channelId = channelId.trim();
       apiKey = apiKey.trim().replaceAll(' ', ''); 
       if (directUrl != null) {
@@ -132,15 +131,28 @@ class IoTDataProvider with ChangeNotifier {
       debugPrint('Refreshing data for channel: $channelId' + 
         (directUrl != null ? ' with direct URL: $directUrl' : ''));
       
-      
-      if (!_channelInfo.containsKey(channelId)) {
-        debugPrint('Fetching channel info for first time');
+      // First get or update channel info
+      try {
         final channelInfo = await _service.getChannelInfo(channelId, apiKey, directUrl: directUrl);
         _channelInfo[channelId] = channelInfo;
+        debugPrint('Got channel info for $channelId with ${channelInfo.fieldLabels.length} fields');
+      } catch (e) {
+        debugPrint('Error getting channel info: $e');
+        // Continue anyway as we might already have channel info cached
       }
       
-      
+      // Get the latest data
       final latestData = await _service.getLatestData(channelId, apiKey, directUrl: directUrl);
+      
+      // Debug the data we received
+      debugPrint('Got ${latestData.length} data points for channel $channelId');
+      if (latestData.isNotEmpty) {
+        debugPrint('First data point has ${latestData.first.fieldValues.length} fields');
+        latestData.first.fieldValues.forEach((key, value) {
+          debugPrint('  $key: $value');
+        });
+      }
+      
       _deviceData[channelId] = latestData;
       
       _isLoading = false;
@@ -148,7 +160,7 @@ class IoTDataProvider with ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       
-      
+      // Format error message
       if (e.toString().contains('API Error')) {
         _error = e.toString().replaceAll('Exception: ', '');
       } else if (e.toString().contains('Bad Request')) {
