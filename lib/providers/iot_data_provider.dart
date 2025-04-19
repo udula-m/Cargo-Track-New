@@ -1,0 +1,233 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/thingspeak_data.dart';
+import '../services/thingspeak_service.dart';
+import '../config/thingspeak_config.dart';
+
+class IoTDataProvider with ChangeNotifier {
+  final ThingSpeakService _service = ThingSpeakService();
+  List<ThingSpeakDevice> _devices = [];
+  Map<String, List<ThingSpeakFeed>> _deviceData = {};
+  Map<String, ThingSpeakChannel> _channelInfo = {};
+  
+  bool _isLoading = false;
+  String _error = '';
+  Timer? _refreshTimer;
+  int _refreshInterval = ThingSpeakConfig.defaultRefreshInterval;
+
+  IoTDataProvider() {
+    _loadDevices();
+    _startRefreshTimer();
+  }
+
+  List<ThingSpeakDevice> get devices => _devices;
+  Map<String, List<ThingSpeakFeed>> get deviceData => _deviceData;
+  Map<String, ThingSpeakChannel> get channelInfo => _channelInfo;
+  bool get isLoading => _isLoading;
+  String get error => _error;
+  int get refreshInterval => _refreshInterval;
+
+  Future<void> _loadDevices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final deviceJsonList = prefs.getStringList('devices') ?? [];
+      
+      _devices = deviceJsonList.map((jsonString) {
+        try {
+          return ThingSpeakDevice.fromJson(
+            json.decode(jsonString) as Map<String, dynamic>
+          );
+        } catch (e) {
+          debugPrint('Error parsing device JSON: $e');
+          return null;
+        }
+      })
+      .where((device) => device != null)
+      .cast<ThingSpeakDevice>()
+      .toList();
+      
+      if (_devices.isNotEmpty) {
+        await refreshAllDeviceData();
+      }
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to load devices: $e';
+      debugPrint(_error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveDevices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final deviceJsonList = _devices.map((device) {
+        try {
+          return json.encode(device.toJson());
+        } catch (e) {
+          debugPrint('Error encoding device: $e');
+          return null;
+        }
+      })
+      .where((jsonString) => jsonString != null)
+      .cast<String>()
+      .toList();
+      
+      await prefs.setStringList('devices', deviceJsonList);
+    } catch (e) {
+      _error = 'Failed to save devices: $e';
+      debugPrint(_error);
+      notifyListeners();
+    }
+  }
+
+  void addDevice(ThingSpeakDevice device) {
+   
+    if (_devices.any((d) => d.channelId == device.channelId)) {
+      _error = 'Device with this Channel ID already exists';
+      notifyListeners();
+      return;
+    }
+
+    _devices.add(device);
+    saveDevices();
+    refreshDeviceData(device.channelId, device.readApiKey, directUrl: device.directUrl);
+    notifyListeners();
+  }
+
+  void removeDevice(ThingSpeakDevice device) {
+    try {
+      _devices.removeWhere((d) => d.channelId == device.channelId);
+      _deviceData.remove(device.channelId);
+      _channelInfo.remove(device.channelId);
+      saveDevices();
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error removing device: $e';
+      debugPrint(_error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshDeviceData(String channelId, String apiKey, {String? directUrl}) async {
+    if ((channelId.isEmpty || apiKey.isEmpty) && (directUrl == null || directUrl.isEmpty)) {
+      _error = 'Invalid channel ID, API key, or URL';
+      notifyListeners();
+      return;
+    }
+
+    _isLoading = true;
+    _error = '';
+    notifyListeners();
+
+    try {
+      
+      channelId = channelId.trim();
+      apiKey = apiKey.trim().replaceAll(' ', ''); 
+      if (directUrl != null) {
+        directUrl = directUrl.trim();
+      }
+      
+      debugPrint('Refreshing data for channel: $channelId' + 
+        (directUrl != null ? ' with direct URL: $directUrl' : ''));
+      
+      
+      if (!_channelInfo.containsKey(channelId)) {
+        debugPrint('Fetching channel info for first time');
+        final channelInfo = await _service.getChannelInfo(channelId, apiKey, directUrl: directUrl);
+        _channelInfo[channelId] = channelInfo;
+      }
+      
+      
+      final latestData = await _service.getLatestData(channelId, apiKey, directUrl: directUrl);
+      _deviceData[channelId] = latestData;
+      
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      
+      
+      if (e.toString().contains('API Error')) {
+        _error = e.toString().replaceAll('Exception: ', '');
+      } else if (e.toString().contains('Bad Request')) {
+        _error = 'Invalid request. Please check your Channel ID and API Key.';
+      } else if (e.toString().contains('Channel not found')) {
+        _error = 'Channel not found. Please check your Channel ID.';
+      } else if (e.toString().contains('Access denied')) {
+        _error = 'Access denied. Please check your API Key.';
+      } else if (e.toString().contains('No internet connection')) {
+        _error = 'No internet connection. Please check your network.';
+      } else if (e.toString().contains('timeout')) {
+        _error = 'Connection timeout. ThingSpeak server is not responding.';
+      } else {
+        _error = 'Failed to refresh data: $e';
+      }
+      
+      debugPrint('Error refreshing device $channelId: $e');
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshAllDeviceData() async {
+    if (_devices.isEmpty) return;
+    
+    _isLoading = true;
+    _error = '';
+    notifyListeners();
+    
+    bool hasError = false;
+    
+    for (var device in _devices) {
+      try {
+        await refreshDeviceData(
+          device.channelId, 
+          device.readApiKey, 
+          directUrl: device.directUrl
+        );
+      } catch (e) {
+        hasError = true;
+        debugPrint('Error refreshing device ${device.name}: $e');
+      }
+    }
+    
+    _isLoading = false;
+    if (hasError && _error.isEmpty) {
+      _error = 'Some devices failed to refresh';
+    }
+    notifyListeners();
+  }
+
+  void setRefreshInterval(int seconds) {
+    if (seconds < 5) seconds = 5; 
+    if (seconds > 3600) seconds = 3600; 
+    
+    _refreshInterval = seconds;
+    _restartRefreshTimer();
+    notifyListeners();
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(Duration(seconds: _refreshInterval), (timer) {
+      refreshAllDeviceData();
+    });
+  }
+
+  void _restartRefreshTimer() {
+    _refreshTimer?.cancel();
+    _startRefreshTimer();
+  }
+
+  void clearError() {
+    _error = '';
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+}
