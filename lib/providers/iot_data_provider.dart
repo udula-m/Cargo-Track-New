@@ -139,20 +139,16 @@ class IoTDataProvider with ChangeNotifier {
       debugPrint('Refreshing data for channel: $channelId' + 
         (directUrl != null ? ' with direct URL: $directUrl' : ''));
       
-      // First get or update channel info
       try {
         final channelInfo = await _service.getChannelInfo(channelId, apiKey, directUrl: directUrl);
         _channelInfo[channelId] = channelInfo;
         debugPrint('Got channel info for $channelId with ${channelInfo.fieldLabels.length} fields');
       } catch (e) {
         debugPrint('Error getting channel info: $e');
-        // Continue anyway as we might already have channel info cached
       }
       
-      // Get the latest data
       final latestData = await _service.getLatestData(channelId, apiKey, directUrl: directUrl);
       
-      // Debug the data we received
       debugPrint('Got ${latestData.length} data points for channel $channelId');
       if (latestData.isNotEmpty) {
         debugPrint('First data point has ${latestData.first.fieldValues.length} fields');
@@ -160,7 +156,6 @@ class IoTDataProvider with ChangeNotifier {
           debugPrint('  $key: $value');
         });
         
-        // Check for notifications on new data
         final device = _devices.firstWhere(
           (d) => d.channelId == channelId,
           orElse: () => ThingSpeakDevice(
@@ -170,7 +165,6 @@ class IoTDataProvider with ChangeNotifier {
           ),
         );
         
-        // Process notifications for the latest data point
         await _processNotifications(device, latestData.first, _channelInfo[channelId]);
       }
       
@@ -203,7 +197,6 @@ class IoTDataProvider with ChangeNotifier {
     }
   }
 
-  // Process notifications for new data
   Future<void> _processNotifications(
     ThingSpeakDevice device, 
     ThingSpeakFeed feed,

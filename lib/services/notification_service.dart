@@ -17,9 +17,8 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   
   bool _initialized = false;
-  int _notificationId = 0; // To generate unique IDs for notifications
+  int _notificationId = 0;
   
-  // Cached threshold values
   bool _notificationsEnabled = false;
   bool _temperatureNotificationsEnabled = false;
   double _temperatureThresholdMin = 0.0;
@@ -35,18 +34,15 @@ class NotificationService {
   double _pressureThresholdMin = 900.0;
   double _pressureThresholdMax = 1100.0;
   
-  // Last alert time to avoid notification spam
   final Map<String, DateTime> _lastAlertTime = {};
   final Duration _alertCooldown = const Duration(minutes: 15);
   
   Future<void> init() async {
     if (_initialized) return;
     
-    // Setup notification channel for Android
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-        
-    // Setup notification settings for iOS
+
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -59,16 +55,13 @@ class NotificationService {
       iOS: initializationSettingsIOS,
     );
     
-    // Initialize the plugin
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         debugPrint('Notification clicked: ${response.payload}');
-        // Handle notification tap here
       },
     );
     
-    // Request permission for Android 13+
     if (Platform.isAndroid) {
       try {
         final AndroidFlutterLocalNotificationsPlugin? androidPlugin =
@@ -83,7 +76,6 @@ class NotificationService {
       }
     }
     
-    // Load notification thresholds from preferences
     await loadThresholdSettings();
     
     _initialized = true;
@@ -123,10 +115,8 @@ class NotificationService {
     if (!_initialized) await init();
     
     try {
-      // Get a unique notification ID
       final int notificationId = _getUniqueNotificationId();
       
-      // Configure Android notification details
       const AndroidNotificationDetails androidNotificationDetails =
           AndroidNotificationDetails(
         'cargo_track_channel',
@@ -140,7 +130,6 @@ class NotificationService {
         icon: '@mipmap/ic_launcher',
       );
       
-      // Configure iOS notification details
       const DarwinNotificationDetails iosNotificationDetails =
           DarwinNotificationDetails(
         presentAlert: true,
@@ -153,7 +142,6 @@ class NotificationService {
         iOS: iosNotificationDetails,
       );
       
-      // Show the notification
       await flutterLocalNotificationsPlugin.show(
         notificationId,
         title,
@@ -168,14 +156,11 @@ class NotificationService {
     }
   }
   
-  // Generate a unique notification ID
   int _getUniqueNotificationId() {
-    // Increment and return, wrapping around at 32-bit int max
     _notificationId = (_notificationId + 1) % 2147483647;
     return _notificationId;
   }
-  
-  // Check data values and send notifications if thresholds are crossed
+
   Future<void> checkAndNotify(
     ThingSpeakDevice device,
     ThingSpeakFeed feed,
@@ -185,17 +170,14 @@ class NotificationService {
     if (!_notificationsEnabled) return;
     
     try {
-      // Reload settings to ensure we have latest threshold values
       await loadThresholdSettings();
       
-      // Check each sensor type
       for (var fieldEntry in feed.fieldValues.entries) {
         final String fieldKey = fieldEntry.key;
         final double value = fieldEntry.value;
         
         String? fieldLabel = channelInfo?.getDisplayLabel(fieldKey).toLowerCase();
         
-        // Check temperature thresholds
         if (_temperatureNotificationsEnabled && 
             (fieldLabel?.contains('temp') ?? false || 
             fieldKey.toLowerCase().contains('temp'))) {
@@ -209,7 +191,6 @@ class NotificationService {
           }
         }
         
-        // Check humidity thresholds
         if (_humidityNotificationsEnabled && 
             (fieldLabel?.contains('humid') ?? false || 
             fieldKey.toLowerCase().contains('humid'))) {
@@ -222,8 +203,7 @@ class NotificationService {
             );
           }
         }
-        
-        // Check light level threshold
+      
         if (_lightLevelNotificationsEnabled && 
             (fieldLabel?.contains('light') ?? false || 
             fieldKey.toLowerCase().contains('light'))) {
@@ -237,7 +217,6 @@ class NotificationService {
           }
         }
         
-        // Check vibration threshold
         if (_vibrationNotificationsEnabled && 
             ((fieldLabel != null && fieldLabel.contains('vibration')) || 
              (fieldLabel != null && fieldLabel.contains('accel')) ||
@@ -253,7 +232,6 @@ class NotificationService {
           }
         }
         
-        // Check pressure thresholds
         if (_pressureNotificationsEnabled && 
             (fieldLabel?.contains('pressure') ?? false || 
             fieldKey.toLowerCase().contains('press'))) {
@@ -272,7 +250,6 @@ class NotificationService {
     }
   }
   
-  // Fixed: Changed from void to Future<void> as this method uses await
   Future<void> _sendAlertIfNotCoolingDown(
     String deviceName,
     String alertType,
@@ -282,20 +259,16 @@ class NotificationService {
     final String alertKey = '$deviceName-$alertType';
     final now = DateTime.now();
     
-    // Check if we've sent an alert recently for this device and type
     if (_lastAlertTime.containsKey(alertKey)) {
       final lastAlert = _lastAlertTime[alertKey]!;
       if (now.difference(lastAlert) < _alertCooldown) {
-        // Still in cooldown period, don't send another notification
         debugPrint('Alert for $alertKey is in cooldown, skipping notification');
         return;
       }
     }
     
-    // Update the last alert time
     _lastAlertTime[alertKey] = now;
     
-    // Send the notification
     await showNotification(
       title: '$deviceName - $title',
       body: message,

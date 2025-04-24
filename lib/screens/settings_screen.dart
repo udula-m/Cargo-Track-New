@@ -18,7 +18,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _testResult = '';
   bool _showingTestResult = false;
   
-  // Notification threshold settings
   bool _notificationsEnabled = false;
   bool _temperatureNotificationsEnabled = false;
   double _temperatureThresholdMin = 0.0;
@@ -51,7 +50,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isDarkMode = prefs.getBool('darkMode') ?? false;
         _refreshInterval = Provider.of<IoTDataProvider>(context, listen: false).refreshInterval;
         
-        // Load notification settings
         _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? false;
         _temperatureNotificationsEnabled = prefs.getBool('temperatureNotificationsEnabled') ?? false;
         _temperatureThresholdMin = prefs.getDouble('temperatureThresholdMin') ?? 0.0;
@@ -82,7 +80,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('darkMode', _isDarkMode);
       
-      // Save notification settings
       await prefs.setBool('notificationsEnabled', _notificationsEnabled);
       await prefs.setBool('temperatureNotificationsEnabled', _temperatureNotificationsEnabled);
       await prefs.setDouble('temperatureThresholdMin', _temperatureThresholdMin);
@@ -134,7 +131,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _buildDivider(),
           
-          // Notification section
           _buildSectionHeader('Notification Settings'),
           SwitchListTile(
             title: const Text('Enable Notifications'),
@@ -148,9 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           
-          // Only show threshold settings when notifications are enabled
           if (_notificationsEnabled) ...[
-            // Temperature notification settings
             SwitchListTile(
               title: const Text('Temperature Alerts'),
               subtitle: const Text('Get notified when temperature is out of range'),
@@ -199,7 +193,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               
-            // Humidity notification settings
             SwitchListTile(
               title: const Text('Humidity Alerts'),
               subtitle: const Text('Get notified when humidity is out of range'),
@@ -248,7 +241,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               
-            // Light level notification settings
             SwitchListTile(
               title: const Text('Light Level Alerts'),
               subtitle: const Text('Get notified when light level exceeds threshold'),
@@ -285,7 +277,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
 
-            // Vibration notification settings
             SwitchListTile(
               title: const Text('Vibration Alerts'),
               subtitle: const Text('Get notified when vibration exceeds threshold'),
@@ -322,7 +313,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
 
-            // Pressure notification settings
             SwitchListTile(
               title: const Text('Pressure Alerts'),
               subtitle: const Text('Get notified when pressure is out of range'),
