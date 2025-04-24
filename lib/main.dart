@@ -5,9 +5,15 @@ import 'screens/settings_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/add_device_screen.dart';
 import 'providers/iot_data_provider.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize the notification service
+  final notificationService = NotificationService();
+  await notificationService.init();
+  
   runApp(
     MultiProvider(
       providers: [

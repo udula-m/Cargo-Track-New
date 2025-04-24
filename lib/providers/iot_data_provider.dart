@@ -4,10 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/thingspeak_data.dart';
 import '../services/thingspeak_service.dart';
+import '../services/notification_service.dart';
 import '../config/thingspeak_config.dart';
 
 class IoTDataProvider with ChangeNotifier {
   final ThingSpeakService _service = ThingSpeakService();
+  final NotificationService _notificationService = NotificationService();
+  
   List<ThingSpeakDevice> _devices = [];
   Map<String, List<ThingSpeakFeed>> _deviceData = {};
   Map<String, ThingSpeakChannel> _channelInfo = {};
@@ -18,8 +21,13 @@ class IoTDataProvider with ChangeNotifier {
   int _refreshInterval = ThingSpeakConfig.defaultRefreshInterval;
 
   IoTDataProvider() {
+    _initServices();
     _loadDevices();
     _startRefreshTimer();
+  }
+
+  Future<void> _initServices() async {
+    await _notificationService.init();
   }
 
   List<ThingSpeakDevice> get devices => _devices;
@@ -151,6 +159,19 @@ class IoTDataProvider with ChangeNotifier {
         latestData.first.fieldValues.forEach((key, value) {
           debugPrint('  $key: $value');
         });
+        
+        // Check for notifications on new data
+        final device = _devices.firstWhere(
+          (d) => d.channelId == channelId,
+          orElse: () => ThingSpeakDevice(
+            channelId: channelId,
+            readApiKey: apiKey,
+            name: 'Unknown Device',
+          ),
+        );
+        
+        // Process notifications for the latest data point
+        await _processNotifications(device, latestData.first, _channelInfo[channelId]);
       }
       
       _deviceData[channelId] = latestData;
@@ -179,6 +200,19 @@ class IoTDataProvider with ChangeNotifier {
       
       debugPrint('Error refreshing device $channelId: $e');
       notifyListeners();
+    }
+  }
+
+  // Process notifications for new data
+  Future<void> _processNotifications(
+    ThingSpeakDevice device, 
+    ThingSpeakFeed feed,
+    ThingSpeakChannel? channelInfo,
+  ) async {
+    try {
+      await _notificationService.checkAndNotify(device, feed, channelInfo);
+    } catch (e) {
+      debugPrint('Error processing notifications: $e');
     }
   }
 

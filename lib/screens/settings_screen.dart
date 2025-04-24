@@ -17,6 +17,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoading = false;
   String _testResult = '';
   bool _showingTestResult = false;
+  
+  // Notification threshold settings
+  bool _notificationsEnabled = false;
+  bool _temperatureNotificationsEnabled = false;
+  double _temperatureThresholdMin = 0.0;
+  double _temperatureThresholdMax = 30.0;
+  bool _humidityNotificationsEnabled = false;
+  double _humidityThresholdMin = 30.0;
+  double _humidityThresholdMax = 70.0;
+  bool _lightLevelNotificationsEnabled = false;
+  double _lightLevelThreshold = 500.0;
+  bool _vibrationNotificationsEnabled = false;
+  double _vibrationThreshold = 2.0;
+  bool _pressureNotificationsEnabled = false;
+  double _pressureThresholdMin = 900.0;
+  double _pressureThresholdMax = 1100.0;
 
   @override
   void initState() {
@@ -34,6 +50,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _isDarkMode = prefs.getBool('darkMode') ?? false;
         _refreshInterval = Provider.of<IoTDataProvider>(context, listen: false).refreshInterval;
+        
+        // Load notification settings
+        _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? false;
+        _temperatureNotificationsEnabled = prefs.getBool('temperatureNotificationsEnabled') ?? false;
+        _temperatureThresholdMin = prefs.getDouble('temperatureThresholdMin') ?? 0.0;
+        _temperatureThresholdMax = prefs.getDouble('temperatureThresholdMax') ?? 30.0;
+        _humidityNotificationsEnabled = prefs.getBool('humidityNotificationsEnabled') ?? false;
+        _humidityThresholdMin = prefs.getDouble('humidityThresholdMin') ?? 30.0;
+        _humidityThresholdMax = prefs.getDouble('humidityThresholdMax') ?? 70.0;
+        _lightLevelNotificationsEnabled = prefs.getBool('lightLevelNotificationsEnabled') ?? false;
+        _lightLevelThreshold = prefs.getDouble('lightLevelThreshold') ?? 500.0;
+        _vibrationNotificationsEnabled = prefs.getBool('vibrationNotificationsEnabled') ?? false;
+        _vibrationThreshold = prefs.getDouble('vibrationThreshold') ?? 2.0;
+        _pressureNotificationsEnabled = prefs.getBool('pressureNotificationsEnabled') ?? false;
+        _pressureThresholdMin = prefs.getDouble('pressureThresholdMin') ?? 900.0;
+        _pressureThresholdMax = prefs.getDouble('pressureThresholdMax') ?? 1100.0;
+        
         _isLoading = false;
       });
     } catch (e) {
@@ -48,6 +81,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('darkMode', _isDarkMode);
+      
+      // Save notification settings
+      await prefs.setBool('notificationsEnabled', _notificationsEnabled);
+      await prefs.setBool('temperatureNotificationsEnabled', _temperatureNotificationsEnabled);
+      await prefs.setDouble('temperatureThresholdMin', _temperatureThresholdMin);
+      await prefs.setDouble('temperatureThresholdMax', _temperatureThresholdMax);
+      await prefs.setBool('humidityNotificationsEnabled', _humidityNotificationsEnabled);
+      await prefs.setDouble('humidityThresholdMin', _humidityThresholdMin);
+      await prefs.setDouble('humidityThresholdMax', _humidityThresholdMax);
+      await prefs.setBool('lightLevelNotificationsEnabled', _lightLevelNotificationsEnabled);
+      await prefs.setDouble('lightLevelThreshold', _lightLevelThreshold);
+      await prefs.setBool('vibrationNotificationsEnabled', _vibrationNotificationsEnabled);
+      await prefs.setDouble('vibrationThreshold', _vibrationThreshold);
+      await prefs.setBool('pressureNotificationsEnabled', _pressureNotificationsEnabled);
+      await prefs.setDouble('pressureThresholdMin', _pressureThresholdMin);
+      await prefs.setDouble('pressureThresholdMax', _pressureThresholdMax);
       
     } catch (e) {
       
@@ -83,6 +132,246 @@ class _SettingsScreenState extends State<SettingsScreen> {
              
             },
           ),
+          _buildDivider(),
+          
+          // Notification section
+          _buildSectionHeader('Notification Settings'),
+          SwitchListTile(
+            title: const Text('Enable Notifications'),
+            subtitle: const Text('Turn on/off all cargo tracking notifications'),
+            value: _notificationsEnabled,
+            onChanged: (value) {
+              setState(() {
+                _notificationsEnabled = value;
+                _saveSettings();
+              });
+            },
+          ),
+          
+          // Only show threshold settings when notifications are enabled
+          if (_notificationsEnabled) ...[
+            // Temperature notification settings
+            SwitchListTile(
+              title: const Text('Temperature Alerts'),
+              subtitle: const Text('Get notified when temperature is out of range'),
+              value: _temperatureNotificationsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _temperatureNotificationsEnabled = value;
+                  _saveSettings();
+                });
+              },
+            ),
+            if (_temperatureNotificationsEnabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Temperature Range (°C):', 
+                      style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Min: ${_temperatureThresholdMin.toStringAsFixed(1)}°C'),
+                        Text('Max: ${_temperatureThresholdMax.toStringAsFixed(1)}°C'),
+                      ],
+                    ),
+                    RangeSlider(
+                      values: RangeValues(_temperatureThresholdMin, _temperatureThresholdMax),
+                      min: -20.0,
+                      max: 50.0,
+                      divisions: 70,
+                      labels: RangeLabels(
+                        '${_temperatureThresholdMin.toStringAsFixed(1)}°C',
+                        '${_temperatureThresholdMax.toStringAsFixed(1)}°C',
+                      ),
+                      onChanged: (RangeValues values) {
+                        setState(() {
+                          _temperatureThresholdMin = values.start;
+                          _temperatureThresholdMax = values.end;
+                          _saveSettings();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              
+            // Humidity notification settings
+            SwitchListTile(
+              title: const Text('Humidity Alerts'),
+              subtitle: const Text('Get notified when humidity is out of range'),
+              value: _humidityNotificationsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _humidityNotificationsEnabled = value;
+                  _saveSettings();
+                });
+              },
+            ),
+            if (_humidityNotificationsEnabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Humidity Range (%):', 
+                      style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Min: ${_humidityThresholdMin.toStringAsFixed(1)}%'),
+                        Text('Max: ${_humidityThresholdMax.toStringAsFixed(1)}%'),
+                      ],
+                    ),
+                    RangeSlider(
+                      values: RangeValues(_humidityThresholdMin, _humidityThresholdMax),
+                      min: 0.0,
+                      max: 100.0,
+                      divisions: 100,
+                      labels: RangeLabels(
+                        '${_humidityThresholdMin.toStringAsFixed(1)}%',
+                        '${_humidityThresholdMax.toStringAsFixed(1)}%',
+                      ),
+                      onChanged: (RangeValues values) {
+                        setState(() {
+                          _humidityThresholdMin = values.start;
+                          _humidityThresholdMax = values.end;
+                          _saveSettings();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              
+            // Light level notification settings
+            SwitchListTile(
+              title: const Text('Light Level Alerts'),
+              subtitle: const Text('Get notified when light level exceeds threshold'),
+              value: _lightLevelNotificationsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _lightLevelNotificationsEnabled = value;
+                  _saveSettings();
+                });
+              },
+            ),
+            if (_lightLevelNotificationsEnabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Light Level Threshold (lux): ${_lightLevelThreshold.toStringAsFixed(0)}',
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Slider(
+                      value: _lightLevelThreshold,
+                      min: 0.0,
+                      max: 1000.0,
+                      divisions: 20,
+                      label: '${_lightLevelThreshold.toStringAsFixed(0)} lux',
+                      onChanged: (double value) {
+                        setState(() {
+                          _lightLevelThreshold = value;
+                          _saveSettings();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+            // Vibration notification settings
+            SwitchListTile(
+              title: const Text('Vibration Alerts'),
+              subtitle: const Text('Get notified when vibration exceeds threshold'),
+              value: _vibrationNotificationsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _vibrationNotificationsEnabled = value;
+                  _saveSettings();
+                });
+              },
+            ),
+            if (_vibrationNotificationsEnabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Vibration Threshold (g): ${_vibrationThreshold.toStringAsFixed(1)}',
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Slider(
+                      value: _vibrationThreshold,
+                      min: 0.1,
+                      max: 10.0,
+                      divisions: 99,
+                      label: '${_vibrationThreshold.toStringAsFixed(1)} g',
+                      onChanged: (double value) {
+                        setState(() {
+                          _vibrationThreshold = value;
+                          _saveSettings();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+            // Pressure notification settings
+            SwitchListTile(
+              title: const Text('Pressure Alerts'),
+              subtitle: const Text('Get notified when pressure is out of range'),
+              value: _pressureNotificationsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _pressureNotificationsEnabled = value;
+                  _saveSettings();
+                });
+              },
+            ),
+            if (_pressureNotificationsEnabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Pressure Range (hPa):', 
+                      style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Min: ${_pressureThresholdMin.toStringAsFixed(1)} hPa'),
+                        Text('Max: ${_pressureThresholdMax.toStringAsFixed(1)} hPa'),
+                      ],
+                    ),
+                    RangeSlider(
+                      values: RangeValues(_pressureThresholdMin, _pressureThresholdMax),
+                      min: 800.0,
+                      max: 1200.0,
+                      divisions: 80,
+                      labels: RangeLabels(
+                        '${_pressureThresholdMin.toStringAsFixed(1)} hPa',
+                        '${_pressureThresholdMax.toStringAsFixed(1)} hPa',
+                      ),
+                      onChanged: (RangeValues values) {
+                        setState(() {
+                          _pressureThresholdMin = values.start;
+                          _pressureThresholdMax = values.end;
+                          _saveSettings();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          
           _buildDivider(),
           
           _buildSectionHeader('Data Settings'),
